@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  passwordHash   String
+  role           Role            @default(PATIENT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  patientProfile PatientProfile? @relation("UserPatientProfile")
+  doctorProfile  DoctorProfile?  @relation("UserDoctorProfile")
+}
+
+model PatientProfile {
+  id           String        @id @default(uuid())
+  userId       String        @unique
+  firstName    String
+  lastName     String
+  phone        String?
+  birthDate    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation("UserPatientProfile", fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[] @relation("PatientAppointments")
+}
+
+model DoctorProfile {
+  id             String            @id @default(uuid())
+  userId         String            @unique
+  firstName      String
+  lastName       String
+  licenseNumber  String            @unique
+  bio            String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation("UserDoctorProfile", fields: [userId], references: [id], onDelete: Cascade)
+  specialties    DoctorSpecialty[]
+  scheduleBlocks ScheduleBlock[]
+  appointments   Appointment[]     @relation("DoctorAppointments")
+}
+
+model Specialty {
+  id          String            @id @default(uuid())
+  name        String            @unique
+  description String?
+  doctors     DoctorSpecialty[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model DoctorSpecialty {
+  doctorId    String
+  specialtyId String
+  doctor      DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialty   Specialty     @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([doctorId, specialtyId])
+  @@index([specialtyId])
+}
+
+model ScheduleBlock {
+  id        String        @id @default(uuid())
+  doctorId  String
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, startsAt])
+}
+
+model Appointment {
+  id        String            @id @default(uuid())
+  doctorId  String
+  patientId String
+  startsAt  DateTime
+  endsAt    DateTime
+  status    AppointmentStatus @default(SCHEDULED)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  doctor    DoctorProfile     @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Restrict)
+  patient   PatientProfile    @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Restrict)
+
+  @@index([doctorId, startsAt])
+  @@index([patientId, startsAt])
+  @@index([status, startsAt])
+}

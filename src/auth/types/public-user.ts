@@ -1,0 +1,3 @@
+import { User } from '../../generated/prisma/client.js';
+
+export type PublicUser = Omit<User, 'passwordHash'>;
